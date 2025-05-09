@@ -13,9 +13,15 @@ OUTPUT_FILE = "annotations_translated.json"
 def translate(model, tokenizer, texts, target_lang):
     device = next(model.parameters()).device
 
-    inputs = tokenizer([f"<2{target_lang}> {text}" for text in texts], return_tensors="pt", padding=True)
+    inputs = tokenizer(
+        [f"<2{target_lang}> {text}" for text in texts],
+        return_tensors="pt",
+        max_length=MAX_LENGTH,
+        padding=True,
+        truncation=True)
     inputs = {k: v.to(device) for k, v in inputs.items()}
 
+    # Default max length is 21, thus we need to change it
     input_length = inputs['input_ids'].shape[1]
     max_length = min(int(input_length * OUTPUT_LENGTH_MULTIPLIER), MAX_LENGTH)
 
