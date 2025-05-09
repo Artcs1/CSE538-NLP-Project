@@ -35,10 +35,10 @@ class BinaryClassifier(torch.nn.Module):
 
 def finetune_binary_classifier(model, train_loader, num_epochs, lr, weight_decay):
     """
-    Function to fine-tune a distilRoberta model for a classification task TODO
+    Function to fine-tune a model to do a binary classification task
     Args:
-    model: instance of distilRoberta TODO
-    train_loader: Dataloader for the BoolQ training set TODO
+    model: instance of BinaryClassifier
+    train_loader: Dataloader for the dataset
     num_epochs: Number of epochs for training
     lr: Learning rate
     weight_decay: Weight decay
@@ -74,9 +74,9 @@ def finetune_binary_classifier(model, train_loader, num_epochs, lr, weight_decay
 
 def evaluate_binary_classifier(model, data_loader):
     """
-    Function to implement distilRoberta inference
+    Function to implement BinaryClassifier inference
     Args:
-    model: instance of distilRoberta
+    model: instance of BinaryClassifier
     data_loader: Dataloader for the dataset
 
     Returns:
