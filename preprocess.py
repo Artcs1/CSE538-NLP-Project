@@ -214,22 +214,17 @@ if __name__ == "__main__":
     ]
 
     complete_data = []
+    seen_texts = set()
+
     for source in SOURCES:
         for x in source.read_data():
-            #print(x)
-            #input()
+            if x[0] in seen_texts:
+                continue
+
             complete_data.append({'language': source.get_language(), 'source': source.get_path(), 'text': x[0], 'label': x[1]})
-        #complete_data.extend([(source.get_language(), source.get_path(), *x) for x in source.read_data()])
+            seen_texts.add(x[0])
 
     statistics(complete_data)
 
     with open("annotations.json", "w") as f:
-        json.dump(complete_data, f, indent=4)    
-
-#print(complete_data)
-
-    #with open("data.csv", "wt") as f:
-    #    f.write("language,source,text,label\n")
-
-    #    for data in complete_data:
-    #        f.write("{},{},{},{}\n".format(*data))
+        json.dump(complete_data, f, indent=4)
