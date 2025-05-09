@@ -13,34 +13,45 @@ class CulturePark:
         self.__label_false = label_false
 
     def read_data(self):
+        with open(self.__path, "rt") as f:
+            data = [json.loads(line) for line in f]
 
-        if not isinstance(self.__path, list):
-            with open(self.__path, "rt") as f:
-                data = [json.loads(line) for line in f]
+            if isinstance(self.__label_true, set) and isinstance(self.__label_false, set):
+                data = [(
+                        x[self.__text_key],
+                        1 if x[self.__label_key] in self.__label_true else (
+                                0 if x[self.__label_key] in self.__label_false else -1
+                        )
+                    ) for x in data]
+                
+            elif isinstance(self.__label_true, set):
+                data = [(
+                        x[self.__text_key],
+                        1 if x[self.__label_key] in self.__label_true else (
+                                0 if x[self.__label_key] == self.__label_false else -1
+                        )
+                    ) for x in data]
+                
+            elif isinstance(self.__label_false, set):
+                data = [(
+                        x[self.__text_key],
+                        1 if x[self.__label_key] == self.__label_true else (
+                                0 if x[self.__label_key] in self.__label_false else -1
+                        )
+                    ) for x in data]
+                
+            else:
                 data = [(
                         x[self.__text_key],
                         1 if x[self.__label_key] == self.__label_true else (
                                 0 if x[self.__label_key] == self.__label_false else -1
                         )
                     ) for x in data]
-        else:
 
-            datas = []
-            files = [open(path, "rt") for path in self.__path]
-            for file in files:
-                data = [json.loads(line) for line in file]
-                datas.append(data)
-
-            num_examples = len(datas[0])
-            documents = len(datas)
-            data = []
-
-            for example in range(num_examples):
-                no_off = 0
-                for doc in range(documents):
-                    if datas[doc][example][self.__label_key] == self.__label_true:
-                        no_off = 1
-                data.append((datas[0][example][self.__text_key], no_off))
+        for datum in data:
+            if datum[1] == -1:
+                print(f"Unknown label detected: {self.get_path()}")
+                break
 
         return data
     
@@ -61,12 +72,16 @@ class MultiHate:
         self.id = id
 
     def read_data(self):
-        
         texts = pd.read_csv(self.path)
 
         data = []
         for meme_id, text in zip(texts['Meme ID'], texts['Translation']):
             data.append((text, int(self.annotations[meme_id, self.id])))
+
+        for datum in data:
+            if datum[1] == -1:
+                print(f"Unknown label detected: {self.get_path()}")
+                break
 
         return data
 
@@ -122,10 +137,12 @@ if __name__ == "__main__":
         CulturePark("culture-data/Spanish/OffendES_offens/data-2.jsonl", "spanish", "data", "label", "OFF", "NOT"),
         MultiHate("multihate-data/captions/es.csv","spanish", "multihate-data/final_annotations.csv", 3),
 
-        # PORTUGUESE: MERGE HOMOPHOBIA, INSULT AND MISOGYNY.
+        # PORTUGUESE
         CulturePark("culture-data/Portuguese/HateBR/data-2.jsonl", "portuguese", "data", "label", "OFF", "NOT"),
         CulturePark("culture-data/Portuguese/OffComBR/data.jsonl", "portuguese", "data", "label", "OFF", "NOT"),
-        CulturePark(["culture-data/Portuguese/ToLD-Br/homophobia.jsonl", "culture-data/Portuguese/ToLD-Br/insult.jsonl", "culture-data/Portuguese/ToLD-Br/misogyny.jsonl"], "portuguese", "data", "label", "1", "0"),
+        CulturePark("culture-data/Portuguese/ToLD-Br/homophobia.jsonl", "portuguese", "data", "label", "1", "0"),
+        CulturePark("culture-data/Portuguese/ToLD-Br/insult.jsonl", "portuguese", "data", "label", "1", "0"),
+        CulturePark("culture-data/Portuguese/ToLD-Br/misogyny.jsonl", "portuguese", "data", "label", "1", "0"),
 
         # TURKISH: DISCARD FINE_GRAINED INFO
         CulturePark("culture-data/Turkey/ATC/fold_0_test.jsonl", "turkey", "tweet", "label", "OFF", "NOT"),
@@ -140,7 +157,7 @@ if __name__ == "__main__":
         CulturePark("culture-data/Korean/AbuseEval/data-2.jsonl", "korean", "data", "label", "OFF", "NOT"),
         CulturePark("culture-data/Korean/CADD/data-2.jsonl", "korean", "data", "label", "OFF", "NOT"),
         CulturePark("culture-data/Korean/K-MHaS/data-2.jsonl", "korean", "data", "label", "HS", "NOT_HS"),
-        CulturePark("culture-data/Korean/Korean-Hate-Speech-Detection/data-2.jsonl", "korean", "data", "label", "HS", "NOT_HS"),
+        CulturePark("culture-data/Korean/Korean-Hate-Speech-Detection/data-2.jsonl", "korean", "data", "label", "HS", {"NOT_HS", ""}),
         CulturePark("culture-data/Korean/KoreanHateSpeechdataset/data-2.jsonl", "korean", "data", "label", "HS", "NOT_HS"),
         CulturePark("culture-data/Korean/Waseem/data-2.jsonl", "korean", "data", "label", "OFF", "NOT"),
 
@@ -176,7 +193,7 @@ if __name__ == "__main__":
         #CulturePark("data/English/SOLID/test_a_tweets_easy.jsonl", "english", "data", "label"),
         #CulturePark("data/English/Toxic Comment Classification Challenge/threat.jsonl", "english", "data", "label", "1", "0"),
         CulturePark("culture-data/English/Toxic Comment Classification Challenge/toxic.jsonl", "english", "data", "label", "1", "0"),
-        CulturePark("culture-data/English/hate-speech-and-offensive-language/data.jsonl", "english", "data", "label", "1", "2"),
+        CulturePark("culture-data/English/hate-speech-and-offensive-language/data.jsonl", "english", "data", "label", {"0", "1"}, "2"),
         MultiHate("multihate-data/captions/en.csv","english", "multihate-data/final_annotations.csv", 1),
         
 
