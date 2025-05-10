@@ -250,10 +250,39 @@ def grid_search_tuning(model, train_dataset, val_dataset, num_epoch, learning_ra
     print(f"\nBest Hyperparameters: LR={best_lr}, L2 Penalty={best_l2_penalty}\n")
     return model_accuracies, best_lr, best_l2_penalty
 
-def generate_prompt(data, translate=True, context=None):
+def generate_prompt(data, translate=False, context=None):
     # TODO: Handle context
     if not translate:
-        return [datum['text'] for datum in data]
+
+        if context == 'long':
+            with open('cultural-context/culture_context_long_orig.jsonl', "r") as f:
+                context = json.load(f)
+            return [f"Consider that {context[datum['language'].lower()]} and the speaker said: {datum['text']}" for datum in data]
+        elif context == 'short':
+            with open('cultural-context/culture_context_short_orig.jsonl', "r") as f:
+                context = json.load(f)
+            return [f"Consider that {context[datum['language'].lower()]} and the speaker said: {datum['text']}" for datum in data]
+        elif context == 'graph':
+            with open('cultural-context/culture_context_short_orig.jsonl', "r") as f:
+                context = json.load(f)
+            return [f"Consider that {context[datum['language'].lower()]} and the speaker said: {datum['text']}" for datum in data]
+        else:
+            return [datum['text'] for datum in data]
+
+    if context == 'long':
+        with open('cultural-context/culture_context_long.jsonl', "r") as f:
+            context = json.load(f)
+        return [f"Consider that {context[datum['language'].lower()]} and the next phrase comes from a {datum['language'].capitalize()} speaker: {datum['translated']}" for datum in data]
+    elif context == 'short':
+        with open('cultural-context/culture_context_short.jsonl', "r") as f:
+            context = json.load(f)
+        return [f"Consider that {context[datum['language'].lower()]} and the next phrase comes from a {datum['language'].capitalize()} speaker: {datum['translated']}" for datum in data]
+    elif context == 'graph':
+        with open('cultural-context/culture_context_graph1.jsonl', "r") as f:
+            context = json.load(f)
+        return [f"Consider that {context[datum['language'].lower()]} and the next phrase comes from a {datum['language'].capitalize()} speaker: {datum['translated']}" for datum in data]
+    else:
+        return [f"The next phrase comes from a {datum['language'].capitalize()} speaker: {datum['translated']}" for datum in data]
 
     return [f"The next phrase comes from a {datum['language'].capitalize()} speaker: {datum['translated']}" for datum in data]
 
@@ -271,8 +300,8 @@ if __name__ == "__main__":
     model.to(device)
 
     # Prepare dataset
-    X_train = generate_prompt(train_data, None)
-    X_val = generate_prompt(val_data, None)
+    X_train = generate_prompt(train_data, True, None)
+    X_val = generate_prompt(val_data, True, None)
 
     y_train = [datum['label'] for datum in train_data]
     y_val = [datum['label'] for datum in val_data]
@@ -291,39 +320,39 @@ if __name__ == "__main__":
     train_loader = TensorDataset(X_train_tensor['input_ids'], X_train_tensor['attention_mask'], y_train_tensor)
     train_loader = DataLoader(train_loader, batch_size=256, shuffle=False)
 
-    train_data = [
-        {
-            "input_ids": X_train_tensor['input_ids'][i],
-            "attention_mask": X_train_tensor['attention_mask'][i],
-            "labels": y_train_tensor[i]
-        }
-        for i in range(len(y_train_tensor))
-    ]
-
-    val_data = [
-        {
-            "input_ids": X_val_tensor['input_ids'][i],
-            "attention_mask": X_val_tensor['attention_mask'][i],
-            "labels": y_val_tensor[i]
-        }
-        for i in range(len(y_val_tensor))
-    ]
-
-    
-    # Hyperparameter Tuning - Grid Search
-    learning_rates = [1e-5, 3e-5, 5e-5]
-    l2_penalties = [1e-5, 1e-3, 1e-1]
-    
-    # Run Grid Search
-    model_accuracies, best_lr, best_l2_penalty = grid_search_tuning(
-        model, train_data, val_data, num_epoch=1, learning_rates=learning_rates, l2_penalties=l2_penalties
-    )
-    
-    print(f"Best Hyperparameters: LR={best_lr}, L2 Penalty={best_l2_penalty}\n")
-
+#    search_train_data = [
+#        {
+#            "input_ids": X_train_tensor['input_ids'][i],
+#            "attention_mask": X_train_tensor['attention_mask'][i],
+#            "labels": y_train_tensor[i]
+#        }
+#        for i in range(len(y_train_tensor))
+#    ]
+#
+#    search_val_data = [
+#        {
+#            "input_ids": X_val_tensor['input_ids'][i],
+#            "attention_mask": X_val_tensor['attention_mask'][i],
+#            "labels": y_val_tensor[i]
+#        }
+#        for i in range(len(y_val_tensor))
+#    ]
+#    learning_rates = [1e-5, 3e-5, 5e-5]
+#    l2_penalties = [1e-5, 1e-3, 1e-1]
+#    
+#    # Run Grid Search
+#    model_accuracies, best_lr, best_l2_penalty = grid_search_tuning(
+#        model, search_train_data, search_val_data, num_epoch=1, learning_rates=learning_rates, l2_penalties=l2_penalties
+#    )
+#    
+#    print(f"Best Hyperparameters: LR={best_lr}, L2 Penalty={best_l2_penalty}\n")
+#
     # Finetune with Best Hyperparameters
-    losses = finetune_binary_classifier(model, train_loader, num_epochs=1, 
-                                        learning_rate=best_lr, weight_decay=best_l2_penalty)
+
+    best_lr = 1e-5
+    best_l2_penalty = 1e-3
+
+    losses = finetune_binary_classifier(model, train_loader, 1, best_lr, best_l2_penalty)
     preds = evaluate_binary_classifier(model, val_loader)
 
     print(f"Results for {model.__class__.__name__}")
