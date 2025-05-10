@@ -139,6 +139,7 @@ def load_data(file_path, train_split, val_split=None):
     with open(file_path, "r") as f:
         data = json.load(f)
 
+    data = [datum for datum in data if isinstance(datum['text'], str)] # TODO: Temporary fix
     data = [datum for datum in data if datum['label'] != -1] # TODO: Temporary fix
     data = [datum for datum in data if 'translated' in datum]
 
@@ -174,8 +175,11 @@ def load_data(file_path, train_split, val_split=None):
 
     return train_data, val_data, test_data
 
-def generate_prompt(data, context=None):
+def generate_prompt(data, translate=True, context=None):
     # TODO: Handle context
+    if not translate:
+        return [datum['text'] for datum in data]
+
     return [f"The next phrase comes from a {datum['language'].capitalize()} speaker: {datum['translated']}" for datum in data]
 
 if __name__ == "__main__":
