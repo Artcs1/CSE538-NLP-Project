@@ -2,6 +2,7 @@ import json
 import os
 import numpy as np
 import pandas as pd 
+from datasets import load_dataset
 
 class CulturePark:
     def __init__(self, path, language, text_key, label_key, label_true, label_false):
@@ -92,6 +93,76 @@ class MultiHate:
         return self.path
 
 
+class DETOX:
+    def __init__(self, path, language, data, text_key, label_key, label_true, label_false):
+        
+        self.path = path 
+        self.language = language
+
+        self.data  = data
+
+        self.text_key    = text_key
+        self.label_key   = label_key
+        self.label_true  = label_true
+        self.label_false = label_false
+
+
+    def read_data(self):
+
+        data = []
+        for item in self.data:
+            data.append((item[self.text_key], int(item[self.label_key])))
+
+        for datum in data:
+            if datum[1] == -1:
+                print(f"Unknown label detected: {self.get_path()}")
+                break
+
+        return data
+
+    def get_language(self):
+        return self.language
+    
+    def get_path(self):
+        return self.path
+
+class DETOX_EXPLAIN:
+    def __init__(self, path, language, data, text_key, label_key, label_true, label_false):
+        
+        self.path = path 
+        self.language = language
+
+        self.data  = data
+
+        self.text_key    = text_key
+        self.label_key   = label_key
+        self.label_true  = label_true
+        self.label_false = label_false
+
+
+    def read_data(self):
+
+        data = []
+        for item in self.data:
+            label = 1
+            if item[self.label_key] == 'Low':
+                label = 0
+            data.append((item[self.text_key], label))
+
+        for datum in data:
+            if datum[1] == -1:
+                print(f"Unknown label detected: {self.get_path()}")
+                break
+
+        return data
+
+    def get_language(self):
+        return self.language
+    
+    def get_path(self):
+        return self.path
+
+
 
 def statistics(data):
     hash_lan = {}
@@ -127,6 +198,12 @@ def statistics(data):
     return 
 
 if __name__ == "__main__":
+    
+    textdetox_multilingual = load_dataset("textdetox/multilingual_toxicity_dataset")
+    textdetox_explain = load_dataset("textdetox/multilingual_toxicity_explained")
+    print(textdetox_multilingual['es'])
+    print(textdetox_explain['es'])
+
     SOURCES = [
         # SPANISH DATA: ONLY PICH AGGRESSIVENESS FOR DETOXIS 2021.
         CulturePark("culture-data/Spanish/AMI IberEval 2018_offens/data-2.jsonl", "spanish", "data", "label", "OFF", "NOT"),
@@ -136,6 +213,8 @@ if __name__ == "__main__":
         CulturePark("culture-data/Spanish/MEX-A3T_offens/data-2.jsonl", "spanish", "data", "label", "OFF", "NOT"),
         CulturePark("culture-data/Spanish/OffendES_offens/data-2.jsonl", "spanish", "data", "label", "OFF", "NOT"),
         MultiHate("multihate-data/captions/es.csv","spanish", "multihate-data/final_annotations.csv", 3),
+        DETOX("detox-es.csv","spanish", textdetox_multilingual['es'], 'text', 'toxic', 1, 0),
+        DETOX_EXPLAIN("detoxexplain-es.csv","spanish", textdetox_explain['es'], 'Sentence', 'Toxicity Level', 1, 0),
 
         # PORTUGUESE
         CulturePark("culture-data/Portuguese/HateBR/data-2.jsonl", "portuguese", "data", "label", "OFF", "NOT"),
@@ -151,7 +230,7 @@ if __name__ == "__main__":
         CulturePark("culture-data/Turkey/offenseCorpus/offens.jsonl", "turkey", "tweet", "label", "OFF", "NOT"),
         CulturePark("culture-data/Turkey/OffensEval2020/OffensEval.jsonl", "turkey", "tweet", "label", "OFF", "NOT"),
         CulturePark("culture-data/Turkey/offenssDetect-kaggle/turkish_tweets_2020.jsonl", "turkey", "tweet", "label", "OFF", "NOT"),
-        CulturePark("culture-data/Turkey/TurkishSpam/trspam.jsonl", "turkey", "tweet", "label", "Spam", "Ham"),
+        #CulturePark("culture-data/Turkey/TurkishSpam/trspam.jsonl", "turkey", "tweet", "label", "Spam", "Ham"),
 
         # KOREAN
         CulturePark("culture-data/Korean/AbuseEval/data-2.jsonl", "korean", "data", "label", "OFF", "NOT"),
@@ -162,8 +241,8 @@ if __name__ == "__main__":
         CulturePark("culture-data/Korean/Waseem/data-2.jsonl", "korean", "data", "label", "OFF", "NOT"),
 
         # GREECE
-        CulturePark("culture-data/Greece/gazzetta/G-TEST-S-preprocessed.jsonl", "greece", "tweet", "label", "OFF", "NOT"),
-        CulturePark("culture-data/Greece/OffensEval2020/OffensEval.jsonl", "greece", "tweet", "label", "OFF", "NOT"),
+        #CulturePark("culture-data/Greece/gazzetta/G-TEST-S-preprocessed.jsonl", "greece", "tweet", "label", "OFF", "NOT"),
+        #CulturePark("culture-data/Greece/OffensEval2020/OffensEval.jsonl", "greece", "tweet", "label", "OFF", "NOT"),
 
         # GERMANY: ONLY PICK ONE OF THE hatespeech refugees
         CulturePark("culture-data/Germany/GermEval/germeval2018.jsonl", "germany", "tweet", "label", "OFF", "NOT"),
@@ -172,6 +251,8 @@ if __name__ == "__main__":
         CulturePark("culture-data/Germany/IWG_hatespeech_public/german_hatespeech_refugees_2.jsonl", "germany", "tweet", "label", "HS", "NOT_HS"),
         CulturePark("culture-data/Germany/MHC/hatecheck_cases_final_german.jsonl", "germany", "tweet", "label", "HS", "NOT_HS"),
         MultiHate("multihate-data/captions/de.csv","germany", "multihate-data/final_annotations.csv", 2),
+        DETOX("detox-de.csv","germany", textdetox_multilingual['de'], 'text', 'toxic', 1, 0),
+        DETOX_EXPLAIN("detoxexplain-de.csv","germany", textdetox_explain['de'], 'Sentence', 'Toxicity Level', 1, 0),
 
         # ENGLISH: 
         CulturePark("culture-data/English/CONAN/en_data-2.jsonl", "english", "data", "label", "HS", "NOT_HS"),
@@ -195,12 +276,16 @@ if __name__ == "__main__":
         CulturePark("culture-data/English/Toxic Comment Classification Challenge/toxic.jsonl", "english", "data", "label", "1", "0"),
         CulturePark("culture-data/English/hate-speech-and-offensive-language/data.jsonl", "english", "data", "label", {"0", "1"}, "2"),
         MultiHate("multihate-data/captions/en.csv","english", "multihate-data/final_annotations.csv", 1),
+        DETOX("detox-en.csv","english", textdetox_multilingual['en'], 'text', 'toxic', 1, 0),
+        DETOX_EXPLAIN("detoxexplain-en.csv","english", textdetox_explain['en'], 'Sentence', 'Toxicity Level', 1, 0),
         
 
         # CHINA
         CulturePark("culture-data/China/CDial-Bias/gender-2.jsonl", "china", "data", "label", "1", "0"),
-        CulturePark("culture-data/China/Chinese-Camouflage-Spam-dataset/data-2.jsonl", "china", "data", "label", "Spam", "Ham"),
+        #CulturePark("culture-data/China/Chinese-Camouflage-Spam-dataset/data-2.jsonl", "china", "data", "label", "Spam", "Ham"),
         MultiHate("multihate-data/captions/zh.csv","china", "multihate-data/final_annotations.csv", 4),
+        DETOX("detox-zh.csv","china", textdetox_multilingual['zh'], 'text', 'toxic', 1, 0),
+        DETOX_EXPLAIN("detoxexplain-zh.csv","china", textdetox_explain['zh'], 'Sentence', 'Toxicity Level', 1, 0),
 
 
 
@@ -215,6 +300,18 @@ if __name__ == "__main__":
         CulturePark("culture-data/Bengali/Bangla-Abusive-Comment-Dataset/threat.jsonl", "bengali", "data", "label", "1", "0"),
         CulturePark("culture-data/Bengali/Trac2-Task2-Misogynistic/Misogynistic-data-2.jsonl", "bengali", "data", "label", "OFF", "NOT"),
         CulturePark("culture-data/Bengali/Bengali hate speech dataset/religion_data-2.jsonl", "bengali", "data", "label", "HS", "NOT_HS"),
+
+        # HINDI
+        DETOX("detox-hi.csv","hindi", textdetox_multilingual['hi'], 'text', 'toxic', 1, 0),
+        MultiHate("multihate-data/captions/hi.csv","hindi", "multihate-data/final_annotations.csv", 5),
+        DETOX_EXPLAIN("detoxexplain-hi.csv","hindi", textdetox_explain['hi'], 'Sentence', 'Toxicity Level', 1, 0),
+        
+        
+        # ITALY
+        DETOX("detox-it.csv","italy", textdetox_multilingual['it'], 'text', 'toxic', 1, 0),
+
+        # FRANCE
+        DETOX("detox-fr.csv","france", textdetox_multilingual['fr'], 'text', 'toxic', 1, 0),
 
         # ARABIC
         # #CulturePark("data/Arabic/MP/hateSpeech.jsonl", "arabic", "comment", "label", "HS", "NOT_HS"),
