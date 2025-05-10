@@ -33,11 +33,11 @@ def translate(model, tokenizer, texts, target_lang):
 def translate_data(model, tokenizer, data, batch_size):
     N = len(data)
 
-    for i in tqdm(range(N // batch_size)):
+    for i in tqdm(range(N // batch_size + (1 if N % batch_size else 0))):
         texts = [x['text'] for x in data[i * batch_size:(i + 1) * batch_size]]
         translated_texts = translate(model, tokenizer, texts, "en")
 
-        for j in range(batch_size):
+        for j in range(len(translated_texts)):
             data[(i * batch_size) + j]['translated'] = translated_texts[j]
 
 if __name__ == "__main__":
