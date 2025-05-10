@@ -1,10 +1,11 @@
+import os
 import json
 import random
 import torch
 import matplotlib.pyplot as plt
 
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, Trainer, TrainingArguments
+from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, Trainer, TrainingArguments, DataCollatorWithPadding
 
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from torch.utils.data import DataLoader, TensorDataset
@@ -176,7 +177,7 @@ def load_data(file_path, train_split, val_split=None):
 
     return train_data, val_data, test_data
 
-def grid_search_tuning(model, train_dataset, val_dataset, learning_rates, l2_penalties):
+def grid_search_tuning(model, train_dataset, val_dataset, num_epoch, learning_rates, l2_penalties):
     """
     Grid Search for Hyperparameter Tuning
     
@@ -195,6 +196,7 @@ def grid_search_tuning(model, train_dataset, val_dataset, learning_rates, l2_pen
     # Initialize accuracy table
     model_accuracies = [[0.0 for _ in range(len(l2_penalties))] for _ in range(len(learning_rates))]
     highest_acc = (0, 0, 0)  # (best_acc, best_lr_index, best_l2_index)
+    data_collator = DataCollatorWithPadding(tokenizer)
 
     for i, cur_lr in enumerate(learning_rates):
         for j, cur_l2 in enumerate(l2_penalties):
@@ -206,7 +208,7 @@ def grid_search_tuning(model, train_dataset, val_dataset, learning_rates, l2_pen
                 learning_rate=cur_lr,
                 per_device_train_batch_size=16,
                 per_device_eval_batch_size=16,
-                num_train_epochs=3,
+                num_train_epochs=num_epoch,
                 weight_decay=cur_l2
             )
             
@@ -214,7 +216,8 @@ def grid_search_tuning(model, train_dataset, val_dataset, learning_rates, l2_pen
                 model=model,
                 args=training_args,
                 train_dataset=train_dataset,
-                eval_dataset=val_dataset
+                eval_dataset=val_dataset,
+                data_collator=data_collator
             )
 
             # Train and evaluate
@@ -257,6 +260,7 @@ def generate_prompt(data, translate=True, context=None):
 if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     torch.manual_seed(42)
+    os.environ["WANDB_DISABLED"] = "true"
 
     # Load data
     train_data, val_data, test_data = load_data(TRANSLATED_FILE, 0.5)
@@ -271,9 +275,12 @@ if __name__ == "__main__":
     X_val = generate_prompt(val_data, None)
 
     y_train = [datum['label'] for datum in train_data]
+    y_val = [datum['label'] for datum in val_data]
+
 
     # Tokenize
     X_val_tensor = tokenizer(X_val, padding=True, truncation=True, return_tensors="pt")
+    y_val_tensor = torch.tensor([float(y) for y in y_val])
 
     val_loader = TensorDataset(X_val_tensor['input_ids'], X_val_tensor['attention_mask'])
     val_loader = DataLoader(val_loader, batch_size=256, shuffle=False)
@@ -284,13 +291,32 @@ if __name__ == "__main__":
     train_loader = TensorDataset(X_train_tensor['input_ids'], X_train_tensor['attention_mask'], y_train_tensor)
     train_loader = DataLoader(train_loader, batch_size=256, shuffle=False)
 
+    train_data = [
+        {
+            "input_ids": X_train_tensor['input_ids'][i],
+            "attention_mask": X_train_tensor['attention_mask'][i],
+            "labels": y_train_tensor[i]
+        }
+        for i in range(len(y_train_tensor))
+    ]
+
+    val_data = [
+        {
+            "input_ids": X_val_tensor['input_ids'][i],
+            "attention_mask": X_val_tensor['attention_mask'][i],
+            "labels": y_val_tensor[i]
+        }
+        for i in range(len(y_val_tensor))
+    ]
+
+    
     # Hyperparameter Tuning - Grid Search
     learning_rates = [1e-5, 3e-5, 5e-5]
     l2_penalties = [1e-5, 1e-3, 1e-1]
     
     # Run Grid Search
     model_accuracies, best_lr, best_l2_penalty = grid_search_tuning(
-        model, train_loader, val_loader, learning_rates, l2_penalties
+        model, train_data, val_data, num_epoch=1, learning_rates=learning_rates, l2_penalties=l2_penalties
     )
     
     print(f"Best Hyperparameters: LR={best_lr}, L2 Penalty={best_l2_penalty}\n")
