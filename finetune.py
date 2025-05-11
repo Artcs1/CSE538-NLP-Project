@@ -437,11 +437,6 @@ if __name__ == "__main__":
 
         preds = evaluate_zero_shot(model, tokenizer, X_test)
         
-    print(f"Results for {model.__class__.__name__}")
-    plt.plot(losses)
-    plt.title(f"{model.__class__.__name__} loss curve")
-    plt.show()
-
     results = print_eval(test_data, preds)
 
     dir_name = 'results/'
