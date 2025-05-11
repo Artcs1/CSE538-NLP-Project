@@ -357,7 +357,7 @@ if __name__ == "__main__":
 
     if "gpt2" in args.model:
         tokenizer.pad_token = tokenizer.eos_token
-        model = AutoModelForCausalLM.from_pretrained(model_name)
+        model = AutoModelForCausalLM.from_pretrained(args.model)
     else:
         model = BinaryClassifier(AutoModel.from_pretrained(args.model))
 
