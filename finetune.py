@@ -3,6 +3,7 @@ import json
 import random
 import torch
 import matplotlib.pyplot as plt
+import argparse
 
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, Trainer, TrainingArguments, DataCollatorWithPadding
@@ -176,6 +177,7 @@ def load_data(file_path, train_split, val_split=None):
     random.shuffle(test_data)
 
     return train_data, val_data, test_data
+
 def grid_search_tuning(model, train_loader, val_loader, num_epochs, lr, l2):
     """
     Grid Search for Hyperparameter Tuning
@@ -220,22 +222,25 @@ def grid_search_tuning(model, train_loader, val_loader, num_epochs, lr, l2):
     print(f"\nBest: lr={best_lr:.1e}, weight_decay={best_wd:.1e}  (accuracy={best_acc:.4f})")
     return model_accuracies, best_lr, best_wd
 
+
 def generate_prompt(data, translate=False, context=None):
     # TODO: Handle context
     if not translate:
 
         if context == 'long':
-            with open('cultural-context/culture_context_long_orig.jsonl', "r") as f:
+            with open('cultural-context/culture_context_long.jsonl', "r") as f:
                 context = json.load(f)
             return [f"Consider that {context[datum['language'].lower()]} and the speaker said: {datum['text']}" for datum in data]
         elif context == 'short':
-            with open('cultural-context/culture_context_short_orig.jsonl', "r") as f:
+            with open('cultural-context/culture_context_short.jsonl', "r") as f:
                 context = json.load(f)
             return [f"Consider that {context[datum['language'].lower()]} and the speaker said: {datum['text']}" for datum in data]
         elif context == 'graph':
-            with open('cultural-context/culture_context_short_orig.jsonl', "r") as f:
+            with open('cultural-context/culture_context_graph1.jsonl', "r") as f:
                 context = json.load(f)
             return [f"Consider that {context[datum['language'].lower()]} and the speaker said: {datum['text']}" for datum in data]
+        elif context == 'simple':
+            return [f"The next phrase comes from a {datum['language'].capitalize()} speaker: {datum['text']}" for datum in data]
         else:
             return [datum['text'] for datum in data]
 
@@ -251,12 +256,23 @@ def generate_prompt(data, translate=False, context=None):
         with open('cultural-context/culture_context_graph1.jsonl', "r") as f:
             context = json.load(f)
         return [f"Consider that {context[datum['language'].lower()]} and the next phrase comes from a {datum['language'].capitalize()} speaker: {datum['translated']}" for datum in data]
-    else:
+    elif context == 'simple':
         return [f"The next phrase comes from a {datum['language'].capitalize()} speaker: {datum['translated']}" for datum in data]
+    else:
+        return [f"{datum['translated']}" for datum in data]
 
-    return [f"The next phrase comes from a {datum['language'].capitalize()} speaker: {datum['translated']}" for datum in data]
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Choose the setting.")
+    parser.add_argument("--model", type=str, default="distilroberta-base")
+    parser.add_argument("--context", type=str, default="None")
+    parser.add_argument("--translate", action="store_true")
+
+    args = parser.parse_args()
+
+    print(f'THIS RUN IS WITH model: {args.model}, with context {args.context} and translation {args.translate}')   
+
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     torch.manual_seed(42)
     os.environ["WANDB_DISABLED"] = "true"
@@ -265,13 +281,13 @@ if __name__ == "__main__":
     train_data, val_data, test_data = load_data(TRANSLATED_FILE, 0.5)
 
     # Start fine tuning
-    tokenizer = AutoTokenizer.from_pretrained("distilroberta-base")
-    model = BinaryClassifier(AutoModel.from_pretrained("distilroberta-base"))
+    tokenizer = AutoTokenizer.from_pretrained(args.model)
+    model = BinaryClassifier(AutoModel.from_pretrained(args.model))
     model.to(device)
 
     # Prepare dataset
-    X_train = generate_prompt(train_data, True, None)
-    X_val = generate_prompt(val_data, True, None)
+    X_train = generate_prompt(train_data, args.translate, args.context)
+    X_val = generate_prompt(val_data, args.translate, args.context)
 
     y_train = [datum['label'] for datum in train_data]
     y_val = [datum['label'] for datum in val_data]
@@ -291,17 +307,20 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_loader, batch_size=256, shuffle=False)
     
     # Hyperparameter Tuning - Grid Search
-    learning_rates = [1e-5, 3e-5, 5e-5]
-    l2_penalties = [1e-5, 1e-3, 1e-1]
-    
-    # Run Grid Search
-    model_accuracies, best_lr, best_l2_penalty = grid_search_tuning(
-        model, train_loader, val_loader, num_epochs=1, lr=learning_rates, l2=l2_penalties
-    )
-    
-    print(f"Best Hyperparameters: LR={best_lr}, L2 Penalty={best_l2_penalty}\n")
-
+#    learning_rates = [1e-5, 3e-5, 5e-5]
+#    l2_penalties = [1e-5, 1e-3, 1e-1]
+#    
+#    # Run Grid Search
+#    model_accuracies, best_lr, best_l2_penalty = grid_search_tuning(
+#        model, train_loader, val_loader, num_epochs=1, lr=learning_rates, l2=l2_penalties
+#    )
+#    
+#    print(f"Best Hyperparameters: LR={best_lr}, L2 Penalty={best_l2_penalty}\n")
+#
     # Finetune with Best Hyperparameters
+    best_lr = 1e-5
+    best_l2_penalty = 1e-3
+
     losses = finetune_binary_classifier(model, train_loader, num_epochs=1, 
                                         lr=best_lr, weight_decay=best_l2_penalty)
     preds = evaluate_binary_classifier(model, val_loader)
