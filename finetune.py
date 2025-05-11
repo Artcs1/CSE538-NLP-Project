@@ -176,79 +176,49 @@ def load_data(file_path, train_split, val_split=None):
     random.shuffle(test_data)
 
     return train_data, val_data, test_data
-
-def grid_search_tuning(model, train_dataset, val_dataset, num_epoch, learning_rates, l2_penalties):
+def grid_search_tuning(model, train_loader, val_loader, num_epochs, lr, l2):
     """
     Grid Search for Hyperparameter Tuning
     
     Args:
         model: The model to be trained (passed as parameter).
-        train_dataset: The training dataset.
-        val_dataset: The validation dataset.
-        learning_rates: List of learning rates to try.
-        l2_penalties: List of L2 weight decay values to try.
+        train_loader: The training data loader.
+        val_loader: The validation data loader.
+        lr: List of learning rates to try.
+        l2: List of L2 weight decay values to try.
     
     Returns:
         model_accuracies: A 2D list of accuracy values for each hyperparameter combination.
         best_lr: The best learning rate found.
         best_l2_penalty: The best L2 penalty (weight decay) found.
     """
-    # Initialize accuracy table
-    model_accuracies = [[0.0 for _ in range(len(l2_penalties))] for _ in range(len(learning_rates))]
-    highest_acc = (0, 0, 0)  # (best_acc, best_lr_index, best_l2_index)
-    data_collator = DataCollatorWithPadding(tokenizer)
+    model_accuracies = [[0.0]*len(l2) for _ in lr]
+    best_acc, best_lr, best_wd = 0.0, None, None
 
-    for i, cur_lr in enumerate(learning_rates):
-        for j, cur_l2 in enumerate(l2_penalties):
-            print(f"Training with LR={cur_lr}, L2 Penalty (Weight Decay)={cur_l2}")
-            
-            # Set Training Arguments
-            training_args = TrainingArguments(
-                output_dir="./results",
-                learning_rate=cur_lr,
-                per_device_train_batch_size=16,
-                per_device_eval_batch_size=16,
-                num_train_epochs=num_epoch,
-                weight_decay=cur_l2
-            )
-            
-            trainer = Trainer(
-                model=model,
-                args=training_args,
-                train_dataset=train_dataset,
-                eval_dataset=val_dataset,
-                data_collator=data_collator
-            )
+    for i, lr in enumerate(lr):
+        for j, wd in enumerate(l2):
+            print(f"→ Training with lr={lr:.1e}, weight_decay={wd:.1e}")
+            # finetune for one trial
+            finetune_binary_classifier(model, train_loader, num_epochs, lr, wd)
+            # evaluate
+            preds = evaluate_binary_classifier(model, val_loader)
+            acc = accuracy_score(y_val, preds)
+            model_accuracies[i][j] = acc
+            print(f"   ↳ val_acc = {acc:.4f}\n")
 
-            # Train and evaluate
-            trainer.train()
-            eval_results = trainer.evaluate()
-            accuracy = eval_results.get("eval_accuracy", 0.0)  # Use accuracy from evaluation
-            
-            model_accuracies[i][j] = accuracy
-            print(f"Accuracy: {accuracy:.4f}\n")
-            
-            # Update highest accuracy
-            if accuracy > highest_acc[0]:
-                highest_acc = (accuracy, i, j)
-    
-    # Extract best hyperparameters
-    best_lr = learning_rates[highest_acc[1]]
-    best_l2_penalty = l2_penalties[highest_acc[2]]
+            if acc > best_acc:
+                best_acc, best_lr, best_wd = acc, lr, wd
 
-    # Print Results
-    print("\nGrid Search Results (Dev Accuracy %):")
-    print("LR\\L2\t\t", "\t".join([f"{l2:.0e}" for l2 in l2_penalties]))
+    # report
+    print("Grid Search Results (val accuracy):")
+    header = ["    WD→"] + [f"{wd:.0e}" for wd in l2]
+    print("\t".join(header))
+    for clr, row in zip(lr, model_accuracies):
+        row_str = [f"{clr:.0e}"] + [f"{acc*100:5.1f}%" for acc in row]
+        print("\t".join(row_str))
 
-    for i, lr in enumerate(learning_rates):
-        row = [f"{lr:-4.1e}\t"]
-        for j, l2 in enumerate(l2_penalties):
-            accuracy = model_accuracies[i][j] * 100
-            row.append(f"{accuracy:.2f}")
-        print("\t".join(row))
-
-    print(f"\nBest Hyperparameters: LR={best_lr}, L2 Penalty={best_l2_penalty}\n")
-    return model_accuracies, best_lr, best_l2_penalty
+    print(f"\nBest: lr={best_lr:.1e}, weight_decay={best_wd:.1e}  (accuracy={best_acc:.4f})")
+    return model_accuracies, best_lr, best_wd
 
 def generate_prompt(data, translate=False, context=None):
     # TODO: Handle context
@@ -319,40 +289,21 @@ if __name__ == "__main__":
 
     train_loader = TensorDataset(X_train_tensor['input_ids'], X_train_tensor['attention_mask'], y_train_tensor)
     train_loader = DataLoader(train_loader, batch_size=256, shuffle=False)
+    
+    # Hyperparameter Tuning - Grid Search
+    learning_rates = [1e-5, 3e-5, 5e-5]
+    l2_penalties = [1e-5, 1e-3, 1e-1]
+    
+    # Run Grid Search
+    model_accuracies, best_lr, best_l2_penalty = grid_search_tuning(
+        model, train_loader, val_loader, num_epochs=1, lr=learning_rates, l2=l2_penalties
+    )
+    
+    print(f"Best Hyperparameters: LR={best_lr}, L2 Penalty={best_l2_penalty}\n")
 
-#    search_train_data = [
-#        {
-#            "input_ids": X_train_tensor['input_ids'][i],
-#            "attention_mask": X_train_tensor['attention_mask'][i],
-#            "labels": y_train_tensor[i]
-#        }
-#        for i in range(len(y_train_tensor))
-#    ]
-#
-#    search_val_data = [
-#        {
-#            "input_ids": X_val_tensor['input_ids'][i],
-#            "attention_mask": X_val_tensor['attention_mask'][i],
-#            "labels": y_val_tensor[i]
-#        }
-#        for i in range(len(y_val_tensor))
-#    ]
-#    learning_rates = [1e-5, 3e-5, 5e-5]
-#    l2_penalties = [1e-5, 1e-3, 1e-1]
-#    
-#    # Run Grid Search
-#    model_accuracies, best_lr, best_l2_penalty = grid_search_tuning(
-#        model, search_train_data, search_val_data, num_epoch=1, learning_rates=learning_rates, l2_penalties=l2_penalties
-#    )
-#    
-#    print(f"Best Hyperparameters: LR={best_lr}, L2 Penalty={best_l2_penalty}\n")
-#
     # Finetune with Best Hyperparameters
-
-    best_lr = 1e-5
-    best_l2_penalty = 1e-3
-
-    losses = finetune_binary_classifier(model, train_loader, 1, best_lr, best_l2_penalty)
+    losses = finetune_binary_classifier(model, train_loader, num_epochs=1, 
+                                        lr=best_lr, weight_decay=best_l2_penalty)
     preds = evaluate_binary_classifier(model, val_loader)
 
     print(f"Results for {model.__class__.__name__}")
