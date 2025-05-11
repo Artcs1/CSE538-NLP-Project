@@ -421,7 +421,7 @@ if __name__ == "__main__":
         best_lr = 1e-5
         best_l2_penalty = 1e-3
 
-        if not args.zero_shot: 
+    if not args.zero_shot: 
 
         losses = finetune_binary_classifier(model, trainval_loader, num_epochs=1,
                                             lr=best_lr, weight_decay=best_l2_penalty)
