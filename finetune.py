@@ -4,7 +4,7 @@ import random
 import torch
 import matplotlib.pyplot as plt
 import argparse
-#import pandas as pd
+import pandas as pd
 
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, Trainer, TrainingArguments, DataCollatorWithPadding
@@ -367,10 +367,10 @@ if __name__ == "__main__":
 
     results = print_eval(test_data, preds)
 
-    #dir_name = 'results/'
-    #if not os.path.exists(dir_name):
-    #    os.mkdir(dir_name)
+    dir_name = 'results/'
+    if not os.path.exists(dir_name):
+        os.mkdir(dir_name)
 
-    #df = pd.DataFrame(results)
-    #exp_name = f'model_{args.model}_Translate:{args.translate}_Context:{args.context}_Validate:{args.validate}.csv'
-    #df.to_csv(dir_name+exp_name, index=False)
+    df = pd.DataFrame(results)
+    exp_name = f'model_{args.model}_Translate:{args.translate}_Context:{args.context}_Validate:{args.validate}.csv'
+    df.to_csv(dir_name+exp_name, index=False)
