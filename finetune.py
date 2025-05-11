@@ -28,16 +28,17 @@ class BinaryClassifier(torch.nn.Module):
 
 def finetune_binary_classifier(model, train_loader, num_epochs, lr, weight_decay):
     """
-    Function to fine-tune a model to do a binary classification task
+    Function to fine-tune a model to do a binary classification task.
+
     Args:
-    model: instance of BinaryClassifier
-    train_loader: Dataloader for the dataset
-    num_epochs: Number of epochs for training
-    lr: Learning rate
-    weight_decay: Weight decay
+        model: instance of BinaryClassifier.
+        train_loader: Dataloader for the dataset.
+        num_epochs: Number of epochs for training.
+        lr: Learning rate.
+        weight_decay: Weight decay.
 
     Returns:
-    batch_losses: List of losses for each mini-batch
+        batch_losses: List of losses for each mini-batch.
     """
     device = next(model.parameters()).device
     model.train()
@@ -67,13 +68,14 @@ def finetune_binary_classifier(model, train_loader, num_epochs, lr, weight_decay
 
 def evaluate_binary_classifier(model, data_loader):
     """
-    Function to implement BinaryClassifier inference
+    Function to implement BinaryClassifier inference.
+
     Args:
-    model: instance of BinaryClassifier
-    data_loader: Dataloader for the dataset
+        model: Instance of BinaryClassifier.
+        data_loader: Dataloader for the dataset.
 
     Returns:
-    preds
+        preds: List of predictions. 
     """
     device = next(model.parameters()).device
     model.eval()
@@ -95,6 +97,7 @@ def evaluate_binary_classifier(model, data_loader):
     return preds
 
 def print_eval_singular(language, y_answer, y_pred):
+    """Function to print results of a single language."""
     precision, recall, f1, _ = precision_recall_fscore_support(y_answer, y_pred)
 
     prec_no, prec_yes = precision
@@ -110,15 +113,12 @@ def print_eval_singular(language, y_answer, y_pred):
 
 def print_eval(data, y_pred):
     """
-    Function to print overall and per language results
+    Function to print overall and per language results.
+
     Args:
-    data: raw data in list of dict format, not only the label
-    y_pred: the predicted label
+        data: Raw data in list of dict format, not only the label.
+        y_pred: The predicted label.
     """
-
-
-
-
     results = []
 
     if len(data) != len(y_pred):
@@ -147,6 +147,19 @@ def print_eval(data, y_pred):
     return results
 
 def load_data(file_path, train_split, val_split=None):
+    """
+    Load and split data per language.
+
+    Args:
+        file_path: Path to the translated data.
+        train_split: Training set split.
+        val_split: Validation set split.
+
+    Returns:
+        train_split: Training set based on train_split ratio.
+        val_split: Validation set based on train_split ratio or defined by val_split.
+        test_split: Test set based on train_split and val_split ratio.
+    """
     # Set val_split if not defined
     if val_split is None:
         val_split = 1 - train_split
@@ -192,7 +205,7 @@ def load_data(file_path, train_split, val_split=None):
 
 def grid_search_tuning(model, train_loader, val_loader, num_epochs, lrs, l2):
     """
-    Grid Search for Hyperparameter Tuning
+    Grid search for hyperparameter tuning.
     
     Args:
         model: The model to be trained (passed as parameter).
@@ -236,9 +249,18 @@ def grid_search_tuning(model, train_loader, val_loader, num_epochs, lrs, l2):
 
 
 def generate_prompt(data, translate=False, context=None):
-    # TODO: Handle context
+    """
+    Add context to raw text or translated text.
+    
+    Args:
+        data: Data that will be used to generate prompt.
+        translate: Use translated text or original text.
+        context: 'long'/'short'/'graph'/'simple'/'none'.
+    
+    Returns:
+        list of string: Final prompt.
+    """
     if not translate:
-
         if context == 'long':
             with open('cultural-context/culture_context_long.jsonl', "r") as f:
                 context = json.load(f)
