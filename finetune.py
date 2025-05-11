@@ -4,6 +4,7 @@ import random
 import torch
 import matplotlib.pyplot as plt
 import argparse
+#import pandas as pd
 
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, Trainer, TrainingArguments, DataCollatorWithPadding
@@ -105,6 +106,7 @@ def print_eval_singular(language, y_answer, y_pred):
     print("    Yes: prec: {:.3f}, rec: {:.3f}, f1: {:.3f}".format(prec_yes, rec_yes, f1_yes))
     print("     No: prec: {:.3f}, rec: {:.3f}, f1: {:.3f}".format(prec_no, rec_no, f1_no))
     print()
+    return accuracy_score(y_answer, y_pred), (f1_yes + f1_no) / 2, prec_yes, rec_yes, f1_yes, prec_no, rec_no, f1_no
 
 def print_eval(data, y_pred):
     """
@@ -113,12 +115,19 @@ def print_eval(data, y_pred):
     data: raw data in list of dict format, not only the label
     y_pred: the predicted label
     """
+
+
+
+
+    results = []
+
     if len(data) != len(y_pred):
         print("data and y_pred have to be the same length and in the same order")
         return
 
     eval_data = [(datum['language'], datum['label'], pred) for datum, pred in zip(data, y_pred)]
-    print_eval_singular("all", [datum[1] for datum in eval_data], [datum[2] for datum in eval_data])
+    acc, f1, prec_yes, rec_yes, f1_yes, prec_no, rec_no, f1_no = print_eval_singular("all", [datum[1] for datum in eval_data], [datum[2] for datum in eval_data])
+    results.append({"model": "all", "accuracy": acc, "f1_score": f1, "prec_yes": prec_yes, "rec_yes": rec_yes, "f1_yes": f1_yes, "prec_no": prec_no, "rec_no": rec_no, "f1_no": f1_no})
 
     # Split into per languages
     data_per_languages = dict()
@@ -132,7 +141,10 @@ def print_eval(data, y_pred):
 
     # Print eval for each languages
     for k, v in data_per_languages.items():
-        print_eval_singular(k, v[0], v[1])
+        acc, f1, prec_yes, rec_yes, f1_yes, prec_no, rec_no, f1_no = print_eval_singular(k, v[0], v[1])
+        results.append({"model": k, "accuracy": acc, "f1_score": f1, "prec_yes": prec_yes, "rec_yes": rec_yes, "f1_yes": f1_yes, "prec_no": prec_no, "rec_no": rec_no, "f1_no": f1_no})
+
+    return results
 
 def load_data(file_path, train_split, val_split=None):
     # Set val_split if not defined
@@ -178,7 +190,7 @@ def load_data(file_path, train_split, val_split=None):
 
     return train_data, val_data, test_data
 
-def grid_search_tuning(model, train_loader, val_loader, num_epochs, lr, l2):
+def grid_search_tuning(model, train_loader, val_loader, num_epochs, lrs, l2):
     """
     Grid Search for Hyperparameter Tuning
     
@@ -194,10 +206,10 @@ def grid_search_tuning(model, train_loader, val_loader, num_epochs, lr, l2):
         best_lr: The best learning rate found.
         best_l2_penalty: The best L2 penalty (weight decay) found.
     """
-    model_accuracies = [[0.0]*len(l2) for _ in lr]
+    model_accuracies = [[0.0]*len(l2) for _ in lrs]
     best_acc, best_lr, best_wd = 0.0, None, None
 
-    for i, lr in enumerate(lr):
+    for i, lr in enumerate(lrs):
         for j, wd in enumerate(l2):
             print(f"→ Training with lr={lr:.1e}, weight_decay={wd:.1e}")
             # finetune for one trial
@@ -215,7 +227,7 @@ def grid_search_tuning(model, train_loader, val_loader, num_epochs, lr, l2):
     print("Grid Search Results (val accuracy):")
     header = ["    WD→"] + [f"{wd:.0e}" for wd in l2]
     print("\t".join(header))
-    for clr, row in zip(lr, model_accuracies):
+    for clr, row in zip(lrs, model_accuracies):
         row_str = [f"{clr:.0e}"] + [f"{acc*100:5.1f}%" for acc in row]
         print("\t".join(row_str))
 
@@ -268,6 +280,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", type=str, default="distilroberta-base")
     parser.add_argument("--context", type=str, default="None")
     parser.add_argument("--translate", action="store_true")
+    parser.add_argument("--validate", action="store_true")
 
     args = parser.parse_args()
 
@@ -278,7 +291,7 @@ if __name__ == "__main__":
     os.environ["WANDB_DISABLED"] = "true"
 
     # Load data
-    train_data, val_data, test_data = load_data(TRANSLATED_FILE, 0.5)
+    trainval_data, test_data, _ = load_data(TRANSLATED_FILE, 0.5)
 
     # Start fine tuning
     tokenizer = AutoTokenizer.from_pretrained(args.model)
@@ -286,47 +299,78 @@ if __name__ == "__main__":
     model.to(device)
 
     # Prepare dataset
-    X_train = generate_prompt(train_data, args.translate, args.context)
-    X_val = generate_prompt(val_data, args.translate, args.context)
+    X_trainval = generate_prompt(trainval_data, args.translate, args.context)
+    X_test = generate_prompt(test_data, args.translate, args.context)
 
-    y_train = [datum['label'] for datum in train_data]
-    y_val = [datum['label'] for datum in val_data]
-
+    y_trainval = [datum['label'] for datum in trainval_data]
+    y_test = [datum['label'] for datum in test_data]
 
     # Tokenize
-    X_val_tensor = tokenizer(X_val, padding=True, truncation=True, return_tensors="pt")
-    y_val_tensor = torch.tensor([float(y) for y in y_val])
+    X_test_tensor = tokenizer(X_test, padding=True, truncation=True, return_tensors="pt")
+    y_test_tensor = torch.tensor([float(y) for y in y_test])
 
-    val_loader = TensorDataset(X_val_tensor['input_ids'], X_val_tensor['attention_mask'])
-    val_loader = DataLoader(val_loader, batch_size=256, shuffle=False)
+    test_loader = TensorDataset(X_test_tensor['input_ids'], X_test_tensor['attention_mask'])
+    test_loader = DataLoader(test_loader, batch_size=256, shuffle=False)
 
-    X_train_tensor = tokenizer(X_train, padding=True, truncation=True, return_tensors="pt")
-    y_train_tensor = torch.tensor([float(y) for y in y_train])
+    X_trainval_tensor = tokenizer(X_trainval, padding=True, truncation=True, return_tensors="pt")
+    y_trainval_tensor = torch.tensor([float(y) for y in y_trainval])
 
-    train_loader = TensorDataset(X_train_tensor['input_ids'], X_train_tensor['attention_mask'], y_train_tensor)
-    train_loader = DataLoader(train_loader, batch_size=256, shuffle=False)
-    
+    trainval_loader = TensorDataset(X_trainval_tensor['input_ids'], X_trainval_tensor['attention_mask'], y_trainval_tensor)
+    trainval_loader = DataLoader(trainval_loader, batch_size=256, shuffle=False)
+
+        
     # Hyperparameter Tuning - Grid Search
-#    learning_rates = [1e-5, 3e-5, 5e-5]
-#    l2_penalties = [1e-5, 1e-3, 1e-1]
-#    
-#    # Run Grid Search
-#    model_accuracies, best_lr, best_l2_penalty = grid_search_tuning(
-#        model, train_loader, val_loader, num_epochs=1, lr=learning_rates, l2=l2_penalties
-#    )
-#    
-#    print(f"Best Hyperparameters: LR={best_lr}, L2 Penalty={best_l2_penalty}\n")
-#
-    # Finetune with Best Hyperparameters
-    best_lr = 1e-5
-    best_l2_penalty = 1e-3
+    if args.validate:
 
-    losses = finetune_binary_classifier(model, train_loader, num_epochs=1, 
+        midpoint = len(X_trainval) // 2
+
+        X_train = X_trainval[:midpoint]
+        X_val = X_trainval[midpoint:]
+
+        y_train = y_trainval[:midpoint]
+        y_val = y_trainval[midpoint:]
+        
+        X_train_tensor = tokenizer(X_train, padding=True, truncation=True, return_tensors="pt")
+        y_train_tensor = torch.tensor([float(y) for y in y_train])
+
+        train_loader = TensorDataset(X_train_tensor['input_ids'], X_train_tensor['attention_mask'], y_train_tensor)
+        train_loader = DataLoader(train_loader, batch_size=256, shuffle=False)
+
+        X_val_tensor = tokenizer(X_val, padding=True, truncation=True, return_tensors="pt")
+        y_val_tensor = torch.tensor([float(y) for y in y_val])
+
+        val_loader = TensorDataset(X_val_tensor['input_ids'], X_val_tensor['attention_mask'])
+        val_loader = DataLoader(val_loader, batch_size=256, shuffle=False)
+
+        learning_rates = [1e-5, 3e-5, 5e-5]
+        l2_penalties = [1e-5, 1e-3, 1e-1]
+        
+        # Run Grid Search
+        model_accuracies, best_lr, best_l2_penalty = grid_search_tuning(
+            model, train_loader, val_loader, num_epochs=1, lrs=learning_rates, l2=l2_penalties
+        )
+        
+        print(f"Best Hyperparameters: LR={best_lr}, L2 Penalty={best_l2_penalty}\n")
+
+    else:
+        best_lr = 1e-5
+        best_l2_penalty = 1e-3
+
+    losses = finetune_binary_classifier(model, trainval_loader, num_epochs=1,
                                         lr=best_lr, weight_decay=best_l2_penalty)
-    preds = evaluate_binary_classifier(model, val_loader)
+    preds = evaluate_binary_classifier(model, test_loader)
 
     print(f"Results for {model.__class__.__name__}")
     plt.plot(losses)
     plt.title(f"{model.__class__.__name__} loss curve")
     plt.show()
-    print_eval(val_data, preds)
+
+    results = print_eval(test_data, preds)
+
+    #dir_name = 'results/'
+    #if not os.path.exists(dir_name):
+    #    os.mkdir(dir_name)
+
+    #df = pd.DataFrame(results)
+    #exp_name = f'model_{args.model}_Translate:{args.translate}_Context:{args.context}_Validate:{args.validate}.csv'
+    #df.to_csv(dir_name+exp_name, index=False)
