@@ -1,3 +1,14 @@
+############################################
+# CSE538 Natural Language Processing
+# Team name: Decepticons
+# Team members:
+# - Enamul Hassan
+# - Jeffri Murrugarra
+# - Kevin Dharmawan
+# 
+# Stores the config
+############################################
+
 PREPROCESS_OUTPUT_PATH = "annotations.json"
 
 TRANSLATION_OUTPUT_PATH = "annotations_translated.json"
