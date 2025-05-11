@@ -66,6 +66,42 @@ def finetune_binary_classifier(model, train_loader, num_epochs, lr, weight_decay
 
     return batch_losses
 
+def evaluate_zero_shot(c_model, c_tokenizer, test_data):
+    """
+    Function to implement BinaryClassifier inference
+    Args:
+    model: instance of BinaryClassifier
+    data_loader: Dataloader for the dataset
+
+    Returns:
+    preds
+    """
+
+    device = next(model.parameters()).device
+    c_model.eval()
+
+    yes_token_id = c_tokenizer.encode("yes", add_special_tokens=False)[0]
+    no_token_id = c_tokenizer.encode("no", add_special_tokens=False)[0]
+    preds = []
+
+    for passage in tqdm(test_data):
+
+        prompt   = f"{passage}\n Is the previous sentence offensive?\n"
+        inputs   = c_tokenizer(prompt, return_tensors="pt", truncation = True).to(device)
+
+        with torch.no_grad():
+            outputs = c_model(**inputs)
+            logits = outputs.logits
+            next_token_logits = logits[0, -1]
+        yes_score = next_token_logits[yes_token_id].item()
+        no_score  = next_token_logits[no_token_id].item()
+        pred = 1 if yes_score > no_score else 0
+
+        preds.append(pred)
+
+    return preds
+
+
 def evaluate_binary_classifier(model, data_loader):
     """
     Function to implement BinaryClassifier inference.
@@ -303,6 +339,7 @@ if __name__ == "__main__":
     parser.add_argument("--context", type=str, default="None")
     parser.add_argument("--translate", action="store_true")
     parser.add_argument("--validate", action="store_true")
+    parser.add_argument("--zero_shot", action="store_true")
 
     args = parser.parse_args()
 
@@ -317,9 +354,13 @@ if __name__ == "__main__":
 
     # Start fine tuning
     tokenizer = AutoTokenizer.from_pretrained(args.model)
+
     if "gpt2" in args.model:
         tokenizer.pad_token = tokenizer.eos_token
-    model = BinaryClassifier(AutoModel.from_pretrained(args.model))
+        model = AutoModelForCausalLM.from_pretrained(model_name)
+    else:
+        model = BinaryClassifier(AutoModel.from_pretrained(args.model))
+
     model.to(device)
 
     # Prepare dataset
@@ -380,10 +421,22 @@ if __name__ == "__main__":
         best_lr = 1e-5
         best_l2_penalty = 1e-3
 
-    losses = finetune_binary_classifier(model, trainval_loader, num_epochs=1,
-                                        lr=best_lr, weight_decay=best_l2_penalty)
-    preds = evaluate_binary_classifier(model, test_loader)
+        if not args.zero_shot: 
 
+        losses = finetune_binary_classifier(model, trainval_loader, num_epochs=1,
+                                            lr=best_lr, weight_decay=best_l2_penalty)
+        preds = evaluate_binary_classifier(model, test_loader)
+
+        print(f"Results for {model.__class__.__name__}")
+        plt.plot(losses)
+        plt.title(f"{model.__class__.__name__} loss curve")
+        plt.show()
+
+
+    else:
+
+        preds = evaluate_zero_shot(model, tokenizer, X_test)
+        
     print(f"Results for {model.__class__.__name__}")
     plt.plot(losses)
     plt.title(f"{model.__class__.__name__} loss curve")
