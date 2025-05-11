@@ -1,3 +1,5 @@
+import config
+
 import json
 import pandas as pd
 
@@ -309,5 +311,5 @@ if __name__ == "__main__":
     statistics(complete_data)
 
     # Export final data
-    with open("annotations.json", "w") as f:
+    with open(config.PREPROCESS_OUTPUT_PATH, "w") as f:
         json.dump(complete_data, f, indent=4)
