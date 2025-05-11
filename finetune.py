@@ -82,6 +82,7 @@ def finetune_binary_classifier(model, train_loader, num_epochs, lr, weight_decay
 
     return batch_losses
 
+# PART 3: ZERO SHOT
 def evaluate_zero_shot(c_model, c_tokenizer, test_data):
     """
     Function to implement BinaryClassifier inference
@@ -329,7 +330,6 @@ def generate_prompt(data, translate=False, context=None):
         elif context == 'simple':
             return [f"The next phrase comes from a {datum['language'].capitalize()} speaker: {datum['text']}" for datum in data]
         else:
-            # PART 3: ZERO SHOT
             return [datum['text'] for datum in data]
 
     if context == 'long':
@@ -347,7 +347,6 @@ def generate_prompt(data, translate=False, context=None):
     elif context == 'simple':
         return [f"The next phrase comes from a {datum['language'].capitalize()} speaker: {datum['translated']}" for datum in data]
     else:
-        # PART 3: ZERO SHOT
         return [f"{datum['translated']}" for datum in data]
 
 
