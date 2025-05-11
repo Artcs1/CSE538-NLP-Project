@@ -295,6 +295,8 @@ if __name__ == "__main__":
 
     # Start fine tuning
     tokenizer = AutoTokenizer.from_pretrained(args.model)
+    if "gpt2" in args.model:
+        tokenizer.pad_token = tokenizer.eos_token
     model = BinaryClassifier(AutoModel.from_pretrained(args.model))
     model.to(device)
 
