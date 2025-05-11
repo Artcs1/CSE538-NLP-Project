@@ -1,0 +1,13 @@
+Language,Original Tokens Total,Original Tokens Min,Original Tokens Max,Original Tokens Avg,Translated Tokens Total,Translated Tokens Min,Translated Tokens Max,Translated Tokens Avg
+bengali,508167,1,6304,119.6,257358,1,4083,60.6
+china,378970,5,234,52.7,133277,1,141,18.5
+english,482601,1,2132,30.4,855820,1,3580,54.0
+france,187838,2,475,39.4,114639,2,379,24.0
+germany,624814,3,260,54.3,443836,3,910,38.6
+hindi,1129071,17,876,183.2,208588,3,709,33.8
+italy,268013,3,1569,53.9,174800,3,1534,35.1
+korean,556268,1,860,97.4,160038,1,2099,28.0
+portuguese,102124,2,432,31.6,95906,1,1005,29.7
+spanish,639159,1,1112,53.0,417288,1,1303,34.6
+turkey,372636,1,657,56.4,224024,1,1156,33.9
+Total,5249661,1,6304,63.8,3085574,1,4083,37.5

@@ -458,5 +458,51 @@ ax.legend(
 plt.tight_layout()
 plt.savefig("stats/tokenwise_boxplot_comparison.png", dpi=300, bbox_inches="tight")
 plt.close(fig)
+# ============================================================================
+
+# 1. Gather per‐language token counts
+langs = sorted(set(languages))
+stats = []
+for lang in langs:
+    orig_texts  = [item['text']       for item in data if item['language']==lang]
+    trans_texts = [item['translated'] for item in data if item['language']==lang]
+
+    # count tokens (no special tokens) for each string
+    orig_tokens  = [len(tokenizer(t, add_special_tokens=False)['input_ids']) for t in orig_texts]
+    trans_tokens = [len(tokenizer(t, add_special_tokens=False)['input_ids']) for t in trans_texts]
+
+    stats.append({
+        'Language':                 lang,
+        'Original Tokens Total':    sum(orig_tokens),
+        'Original Tokens Min':      min(orig_tokens),
+        'Original Tokens Max':      max(orig_tokens),
+        'Original Tokens Avg':      round(np.mean(orig_tokens), 1),
+        'Translated Tokens Total':  sum(trans_tokens),
+        'Translated Tokens Min':    min(trans_tokens),
+        'Translated Tokens Max':    max(trans_tokens),
+        'Translated Tokens Avg':    round(np.mean(trans_tokens), 1),
+    })
+
+# 2. Build DataFrame
+df_token_stats = pd.DataFrame(stats)
+
+# 3. Compute the overall Total row
+all_orig_tokens  = [len(tokenizer(item['text'], add_special_tokens=False)['input_ids'])       for item in data]
+all_trans_tokens = [len(tokenizer(item['translated'], add_special_tokens=False)['input_ids']) for item in data]
+total_row = {
+    'Language':                 'Total',
+    'Original Tokens Total':    sum(all_orig_tokens),
+    'Original Tokens Min':      min(all_orig_tokens),
+    'Original Tokens Max':      max(all_orig_tokens),
+    'Original Tokens Avg':      round(np.mean(all_orig_tokens), 1),
+    'Translated Tokens Total':  sum(all_trans_tokens),
+    'Translated Tokens Min':    min(all_trans_tokens),
+    'Translated Tokens Max':    max(all_trans_tokens),
+    'Translated Tokens Avg':    round(np.mean(all_trans_tokens), 1),
+}
+
+# 4. Append Total and save CSV
+df_token_stats = pd.concat([df_token_stats, pd.DataFrame([total_row])], ignore_index=True)
+df_token_stats.to_csv('stats/token_stats.csv', index=False)
 
 print("✅ All statistics generated and saved under 'stats/' directory.")
