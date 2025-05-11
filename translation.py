@@ -1,3 +1,17 @@
+############################################
+# CSE538 Natural Language Processing
+# Team name: Decepticons
+# Team members:
+# - Enamul Hassan
+# - Jeffri Murrugarra
+# - Kevin Dharmawan
+# 
+# Translates the texts in the combined data
+# Implements Part 1 (tokenization), Part 3 (generative)
+# Note that this is not the main part of our project
+# The main part is in finetune.py
+############################################
+
 import config
 import json
 import torch
@@ -34,6 +48,7 @@ def translate(model, tokenizer, texts, target_lang):
     input_length = inputs['input_ids'].shape[1]
     max_length = min(int(input_length * config.TRANSLATION_OUTPUT_LENGTH_MULTIPLIER), config.TRANSLATION_MAX_LENGTH)
 
+    # PART 3: GENERATIVE
     outputs = model.generate(**inputs, max_length=max_length)
     translations = tokenizer.batch_decode(outputs, skip_special_tokens=True)
 
@@ -65,6 +80,7 @@ if __name__ == "__main__":
     # Initialize model and tokenizer
     model = AutoModelForSeq2SeqLM.from_pretrained("google/madlad400-3b-mt", torch_dtype=torch.float16)
     model.to(device)
+    # PART 1: TOKENIZATION
     tokenizer = AutoTokenizer.from_pretrained("google/madlad400-3b-mt")
 
     # Read combined data source

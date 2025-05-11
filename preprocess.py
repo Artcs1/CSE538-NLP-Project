@@ -1,3 +1,14 @@
+############################################
+# CSE538 Natural Language Processing
+# Team name: Decepticons
+# Team members:
+# - Enamul Hassan
+# - Jeffri Murrugarra
+# - Kevin Dharmawan
+# 
+# Combine the data into one JSON file
+############################################
+
 import config
 
 import json

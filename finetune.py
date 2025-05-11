@@ -1,3 +1,15 @@
+############################################
+# CSE538 Natural Language Processing
+# Team name: Decepticons
+# Team members:
+# - Enamul Hassan
+# - Jeffri Murrugarra
+# - Kevin Dharmawan
+# 
+# Main part of the project, finetune and evaluate model
+# Implements Part 1 (tokenization), Part 2 (embeddings), Part 3 (finetuning & zero shot), Part 4 (social science)
+############################################
+
 import os
 import json
 import random
@@ -15,6 +27,8 @@ from torch.utils.data import DataLoader, TensorDataset
 
 TRANSLATED_FILE = "annotations_translated.json"
 
+# PART 3: FINETUNING
+# Finetune an LM to do binary classification
 class BinaryClassifier(torch.nn.Module):
     def __init__(self, base_model):
         super(BinaryClassifier, self).__init__()
@@ -22,6 +36,8 @@ class BinaryClassifier(torch.nn.Module):
         self.classifier = torch.nn.Linear(self.base.config.hidden_size, 1)
 
     def forward(self, input_ids, attention_mask):
+        # PART 2: EMBEDDINGS
+        # Use the embeddings from last hidden state of the [CLS] token
         outputs = self.base(input_ids=input_ids, attention_mask=attention_mask)
         cls_token_repr = outputs.last_hidden_state[:, 0]
         return self.classifier(cls_token_repr)
@@ -283,7 +299,8 @@ def grid_search_tuning(model, train_loader, val_loader, num_epochs, lrs, l2):
     print(f"\nBest: lr={best_lr:.1e}, weight_decay={best_wd:.1e}  (accuracy={best_acc:.4f})")
     return model_accuracies, best_lr, best_wd
 
-
+# PART 4: SOCIAL SCIENCE APPLICATION
+# We add cultural context to the prompt
 def generate_prompt(data, translate=False, context=None):
     """
     Add context to raw text or translated text.
@@ -312,6 +329,7 @@ def generate_prompt(data, translate=False, context=None):
         elif context == 'simple':
             return [f"The next phrase comes from a {datum['language'].capitalize()} speaker: {datum['text']}" for datum in data]
         else:
+            # PART 3: ZERO SHOT
             return [datum['text'] for datum in data]
 
     if context == 'long':
@@ -329,6 +347,7 @@ def generate_prompt(data, translate=False, context=None):
     elif context == 'simple':
         return [f"The next phrase comes from a {datum['language'].capitalize()} speaker: {datum['translated']}" for datum in data]
     else:
+        # PART 3: ZERO SHOT
         return [f"{datum['translated']}" for datum in data]
 
 
@@ -370,7 +389,7 @@ if __name__ == "__main__":
     y_trainval = [datum['label'] for datum in trainval_data]
     y_test = [datum['label'] for datum in test_data]
 
-    # Tokenize
+    # PART 1: TOKENIZATION
     X_test_tensor = tokenizer(X_test, padding=True, truncation=True, return_tensors="pt")
     y_test_tensor = torch.tensor([float(y) for y in y_test])
 

@@ -1,3 +1,14 @@
+############################################
+# CSE538 Natural Language Processing
+# Team name: Decepticons
+# Team members:
+# - Enamul Hassan
+# - Jeffri Murrugarra
+# - Kevin Dharmawan
+# 
+# Generates statistics of data
+############################################
+
 import json
 from collections import Counter
 import matplotlib.pyplot as plt
