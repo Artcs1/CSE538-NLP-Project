@@ -32,7 +32,23 @@ data = [item for item in data if 'translated' in item and isinstance(item.get('t
 
 # Total records
 total_records = len(data)
+LANGUAGE_FIX_MAP = {
+    "english": "english",
+    "spanish": "spanish",
+    "germany": "german",
+    "china": "chinese",
+    "turkey": "turkish",
+    "hindi": "hindi",
+    "korean": "korean",
+    "italy": "italian",
+    "france": "french",
+    "bengali": "bengali",
+    "portuguese": "portuguese",
+}
 
+for item in data:
+    item['language'] = LANGUAGE_FIX_MAP[item['language']]
+    
 # Language distribution
 languages = [item['language'] for item in data]
 lang_distribution = Counter(languages)
@@ -146,7 +162,7 @@ wedges, texts, autotexts = plt.pie(
     lang_distribution.values(),
     labels=lang_distribution.keys(),
     autopct='%1.1f%%',
-    textprops={'fontsize': 16, 'weight': 'bold'},
+    textprops={'fontsize': 20, 'weight': 'bold'},
     colors=colors,
     startangle=90
 )
@@ -155,7 +171,7 @@ wedges, texts, autotexts = plt.pie(
 for autotext in autotexts:
     autotext.set_position((autotext.get_position()[0] * 1.1, autotext.get_position()[1] * 1.1))
 
-plt.title('Language Distribution Percentage', fontsize=18)
+plt.title('Language Distribution Percentage', fontsize=25)
 plt.tight_layout()
 plt.savefig('stats/language_distribution.png')
 # ============================================================================
@@ -164,24 +180,44 @@ plt.savefig('stats/language_distribution.png')
 to_drop = ['Total','Min','Avg','Max']
 plot_df = label_stats_df[~label_stats_df['Language'].isin(to_drop)]
 
-# 2. Set Language as index and plot only the real languages
+# 2. Create a square-ish figure
+fig, ax = plt.subplots(figsize=(6, 6))  # width=6, height=6
+
+# 3. Plot onto that Axes
 plot_df.set_index('Language')[['Label 1','Label 0']].plot(
     kind='bar',
     stacked=True,
-    figsize=(12,6)
+    ax=ax
 )
 
-plt.title('Label Distribution by Language (Stacked)')
-plt.xlabel('Languages')
-plt.ylabel('Count')
+# 4. Increase font sizes
+ax.set_title('Label Distribution by Language (Stacked)', fontsize=18)
+ax.set_xlabel('Languages', fontsize=16)
+ax.set_ylabel('Count', fontsize=16)
+ax.tick_params(axis='x', labelsize=14, rotation=45)
+ax.tick_params(axis='y', labelsize=14)
+ax.legend(title='Label', fontsize=14, title_fontsize=16)
+
+# Calculate the total count for each language
+for i, (lang, total) in enumerate(zip(plot_df['Language'], plot_df['Total'])):
+    # Calculate the percentage of the grand total
+    percentage = 100 * total / plot_df['Total'].sum()
+    # Add text annotation above each bar - smaller font and rotated 30 degrees
+    ax.text(i, total + 10, f"{percentage:.1f}%", 
+            ha='center', va='bottom', fontsize=10, fontweight='bold',
+            rotation=30)
+
 plt.tight_layout()
 plt.savefig('stats/label_distribution_stacked.png')
 plt.close()
+
+
 # ============================================================================
 
 # Word-wise statistics with min, max, avg, total per language (and Total at end)
 word_stats = []
 for lang in set(languages):
+
     texts = [item['text'] for item in data if item['language'] == lang]
     translated_texts = [item['translated'] for item in data if item['language'] == lang]
     
